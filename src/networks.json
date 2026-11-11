@@ -1,0 +1,197 @@
+{
+  "_metadata": {
+    "warning": " dia chi contract sai la mat tien vinh vien. Chi dung dia chi trong file nay sau khi da doi chieu voi explorer chinh thuc. Khong tu y sua decimals.",
+    "verifiedAt": "2026-10-07",
+    "sources": [
+      "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "https://docs.goldsky.com/turbo-pipelines/guides/token-transfers/stablecoin-addresses",
+      "https://docs.solana.com/cluster/rpc-endpoints"
+    ],
+    "relayChainNote": "relayChainId lay tu Relay GET /chains. EVM giu nguyen chainId. Solana dung dinh danh rieng 792703809 cua Relay, khong phai chainId EVM.",
+    "transfer": {
+      "eip7702MinCalls": 3,
+      "eip7702MinCallsWhenDelegated": 2
+    }
+  },
+  "arbitrum": {
+    "name": "Arbitrum One",
+    "vmType": "evm",
+    "chainId": 42161,
+    "relayChainId": 42161,
+    "nativeSymbol": "ETH",
+    "nativeDecimals": 18,
+    "eip1559": true,
+    "seedRpcs": [
+      "https://arbitrum-one-rpc.publicnode.com",
+      "https://arb1.arbitrum.io/rpc",
+      "https://arbitrum.llamarpc.com",
+      "https://rpc.ankr.com/arbitrum",
+      "https://1rpc.io/arb"
+    ],
+    "explorer": "https://arbiscan.io/",
+    "contracts": {
+      "wrappedNative": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+    }
+  },
+  "base": {
+    "name": "Base",
+    "vmType": "evm",
+    "chainId": 8453,
+    "relayChainId": 8453,
+    "nativeSymbol": "ETH",
+    "nativeDecimals": 18,
+    "eip1559": true,
+    "seedRpcs": [
+      "https://base-rpc.publicnode.com",
+      "https://rpc-base.blockmachine.io",
+      "https://mainnet.base.org",
+      "https://base.llamarpc.com",
+      "https://rpc.ankr.com/base"
+    ],
+    "explorer": "https://basescan.org/",
+    "contracts": {
+      "wrappedNative": "0x4200000000000000000000000000000000000006"
+    }
+  },
+  "bsc": {
+    "name": "BNB Smart Chain",
+    "vmType": "evm",
+    "chainId": 56,
+    "relayChainId": 56,
+    "nativeSymbol": "BNB",
+    "nativeDecimals": 18,
+    "eip1559": false,
+    "seedRpcs": [
+      "https://bsc-dataseed.binance.org",
+      "https://bsc-rpc.publicnode.com",
+      "https://bnb.llamarpc.com",
+      "https://rpc.ankr.com/bsc",
+      "https://bsc-dataseed1.defibit.io"
+    ],
+    "explorer": "https://bscscan.com/",
+    "contracts": {
+      "wrappedNative": "0xbb4cDb9cBd36B01BD1cbaeBF2dE08d9173bC281a"
+    }
+  },
+  "ethereum": {
+    "name": "Ethereum Mainnet",
+    "vmType": "evm",
+    "chainId": 1,
+    "relayChainId": 1,
+    "nativeSymbol": "ETH",
+    "nativeDecimals": 18,
+    "eip1559": true,
+    "seedRpcs": [
+      "https://ethereum-rpc.publicnode.com",
+      "https://eth.llamarpc.com",
+      "https://rpc.ankr.com/eth",
+      "https://1rpc.io/eth",
+      "https://ethereum.blockpi.network/v1/rpc/public"
+    ],
+    "explorer": "https://etherscan.io/",
+    "contracts": {
+      "wrappedNative": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+    }
+  },
+  "ethereum-sepolia": {
+    "name": "Ethereum Sepolia",
+    "vmType": "evm",
+    "chainId": 11155111,
+    "cluster": "",
+    "relayChainId": 11155111,
+    "seedRpcs": [
+      "https://ethereum-sepolia-rpc.publicnode.com",
+      "https://sepolia.drpc.org",
+      "https://rpc.sepolia.org"
+    ],
+    "nativeSymbol": "ETH",
+    "nativeDecimals": 18,
+    "eip1559": true,
+    "explorer": "https://sepolia.etherscan.io/",
+    "contracts": {
+      "wrappedNative": "",
+      "eip7702Executor": "0x17a897d1f958a804980730A29fB82203E48f0A82",
+      "eip7702ExecutorCodeHash": "0x71beae729f2ca86e0712ec0c3ef12f42fb491834cf59c20396b72ce475da898c"
+    }
+  },
+  "linea-mainnet": {
+    "name": "Linea Mainnet",
+    "vmType": "evm",
+    "chainId": 59144,
+    "cluster": "",
+    "relayChainId": 59144,
+    "seedRpcs": [
+      "wss://linea-rpc.publicnode.com",
+      "https://linea-rpc.publicnode.com",
+      "https://linea.drpc.org",
+      "https://linea.api.pocket.network"
+    ],
+    "nativeSymbol": "ETH",
+    "nativeDecimals": 18,
+    "eip1559": true,
+    "explorer": "",
+    "contracts": {
+      "wrappedNative": ""
+    }
+  },
+  "optimism": {
+    "name": "Optimism",
+    "vmType": "evm",
+    "chainId": 10,
+    "relayChainId": 10,
+    "nativeSymbol": "ETH",
+    "nativeDecimals": 18,
+    "eip1559": true,
+    "seedRpcs": [
+      "https://optimism-rpc.publicnode.com",
+      "https://mainnet.optimism.io",
+      "https://optimism.llamarpc.com",
+      "https://rpc.ankr.com/optimism",
+      "https://1rpc.io/op"
+    ],
+    "explorer": "https://optimistic.etherscan.io/",
+    "contracts": {
+      "wrappedNative": "0x4200000000000000000000000000000000000006"
+    }
+  },
+  "polygon": {
+    "name": "Polygon",
+    "vmType": "evm",
+    "chainId": 137,
+    "relayChainId": 137,
+    "nativeSymbol": "POL",
+    "nativeDecimals": 18,
+    "eip1559": true,
+    "seedRpcs": [
+      "https://polygon-bor-rpc.publicnode.com",
+      "https://polygon-rpc.com",
+      "https://polygon.llamarpc.com",
+      "https://rpc.ankr.com/polygon",
+      "https://1rpc.io/matic"
+    ],
+    "explorer": "https://polygonscan.com/",
+    "contracts": {
+      "wrappedNative": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"
+    }
+  },
+  "solana": {
+    "name": "Solana Mainnet",
+    "vmType": "svm",
+    "cluster": "mainnet-beta",
+    "relayChainId": 792703809,
+    "nativeSymbol": "SOL",
+    "nativeDecimals": 9,
+    "eip1559": false,
+    "seedRpcs": [
+      "https://api.mainnet-beta.solana.com",
+      "https://api.mainnet.solana.com",
+      "https://solana-rpc.publicnode.com",
+      "https://rpc.ankr.com/solana",
+      "https://solana.llamarpc.com"
+    ],
+    "explorer": "https://solscan.io/",
+    "contracts": {
+      "wrappedNative": "So11111111111111111111111111111111111111112"
+    }
+  }
+}

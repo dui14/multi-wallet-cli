@@ -1,0 +1,77 @@
+package amount
+
+import (
+	"fmt"
+	"math/big"
+	"strings"
+)
+
+// Amount is a token quantity in base units with its display decimals.
+type Amount struct {
+	Raw      *big.Int
+	Decimals uint8
+}
+
+// Parse converts a human string such as "1.5" into base units.
+func Parse(human string, decimals uint8) (*big.Int, error) {
+	trimmed := strings.TrimSpace(human)
+	if trimmed == "" {
+		return nil, fmt.Errorf("amount is required")
+	}
+	if strings.HasPrefix(trimmed, "-") || strings.HasPrefix(trimmed, "+") {
+		return nil, fmt.Errorf("amount must be positive")
+	}
+	parts := strings.SplitN(trimmed, ".", 3)
+	if len(parts) > 2 {
+		return nil, fmt.Errorf("amount has too many decimal points")
+	}
+	whole := parts[0]
+	frac := ""
+	if len(parts) == 2 {
+		frac = parts[1]
+	}
+	if whole == "" && frac == "" {
+		return nil, fmt.Errorf("amount is required")
+	}
+	for _, ch := range whole + frac {
+		if ch < '0' || ch > '9' {
+			return nil, fmt.Errorf("amount must contain digits only")
+		}
+	}
+	if len(frac) > int(decimals) {
+		return nil, fmt.Errorf("amount exceeds %d decimals", decimals)
+	}
+	frac += strings.Repeat("0", int(decimals)-len(frac))
+	digits := strings.TrimLeft(whole+frac, "0")
+	if digits == "" {
+		return nil, fmt.Errorf("amount must be greater than zero")
+	}
+	raw := new(big.Int)
+	if _, ok := raw.SetString(digits, 10); !ok {
+		return nil, fmt.Errorf("amount is not a number")
+	}
+	if raw.Sign() <= 0 {
+		return nil, fmt.Errorf("amount must be greater than zero")
+	}
+	return raw, nil
+}
+
+// Format renders base units as a human string without float math.
+func Format(raw *big.Int, decimals uint8) string {
+	if raw == nil {
+		return "-"
+	}
+	digits := raw.Text(10)
+	if int(decimals) == 0 {
+		return digits
+	}
+	if len(digits) <= int(decimals) {
+		digits = strings.Repeat("0", int(decimals)-len(digits)+1) + digits
+	}
+	whole := digits[:len(digits)-int(decimals)]
+	frac := strings.TrimRight(digits[len(digits)-int(decimals):], "0")
+	if frac == "" {
+		return whole
+	}
+	return whole + "." + frac
+}

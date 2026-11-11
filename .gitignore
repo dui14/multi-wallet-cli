@@ -1,0 +1,23 @@
+.env
+*.exe
+*/wallets/
+*/logs/
+*/config/agent_config.json
+
+# Context
+.agents/
+ai-context/
+docs/
+.github/copilot-instructions.md
+.cursor/
+.vscode/
+*.txt
+spec/
+idea.md
+AGENTS.md
+CLAUDE.md
+
+# Contracts
+contracts/out/
+contracts/cache/
+contracts/foundry.lock
