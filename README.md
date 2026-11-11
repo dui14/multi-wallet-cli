@@ -2,22 +2,26 @@
 
 Local command-line tool for moving funds across many wallets. Keys stay on your machine. An interactive menu and a natural-language agent both stop for your confirmation before anything is signed.
 
-## Index
-
-1. [Why this tool](#why-this-tool)
-2. [Tech](#tech)
-3. [Security](#security)
-4. [Features](#features)
-5. [How to use](#how-to-use)
-6. [Warning](#warning)
-7. [Deploy the executor](#deploy-the-executor)
-8. [Disclaimer](#disclaimer)
-9. [Contributing](#contributing)
-10. [License](#license)
+- [Why this tool](#why-this-tool)
+- [Tech](#tech)
+- [Security](#security)
+- [Features](#features)
+- [How to use](#how-to-use)
+- [Warning](#warning)
+- [Deploy the executor](#deploy-the-executor)
+- [Disclaimer](#disclaimer)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Why this tool
 
-Running many wallets usually means a browser extension, a hosted bot, or a stack of scripts that keep raw keys in a file. This tool is the local alternative.
+> Recorded because numerous major hacks have occurred in the crypto market recently:
+>
+> - [Binance lost $6.3B](https://www.foxbusiness.com/fox-news-tech/binance-names-new-cfo-days-cryptocurrency-hack) due to social engineering on a DevOps engineer compromising internal tools.
+> - [Bitget lost $352M](https://www.cnbc.com/2026/09/25/crypto-platform-bitget-suspects-north-korea-in-352-million-hack.html) due to a backend service breach allowing spoofed transfer requests.
+> - [Ledger lost $94M](https://www.forbes.com/sites/digital-assets/2026/10/23/ledgers-spy-chip-attack-what-we-know-so-far) due to a hardware supply-chain spy-chip attack.
+
+Managing multiple on-chain wallets typically relies on browser extensions, hosted bots, or loose script files that store raw private keys insecurely. This local alternative is built to **protect on-chain assets securely** and **explore systems engineering and cryptography**, ensuring you **don't put all your eggs in one basket**.
 
 - One master password unlocks every wallet into RAM. The encrypted JSON alone is not enough.
 - Transfer, swap, bridge, and balance run from the terminal across EVM and Solana, without a server account.
