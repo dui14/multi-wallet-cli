@@ -30,20 +30,22 @@ func (f *Flow) buildOneToMany(ctx context.Context, req Request) (Plan, error) {
 		if loadErr != nil {
 			return Plan{}, loadErr
 		}
-		values, splitErr := splitAmounts(resolved, recipients, req.Split)
-		if splitErr != nil {
-			return Plan{}, splitErr
-		}
 		balance, balanceErr := f.balanceOf(ctx, req.From.Address, resolved)
 		if balanceErr != nil {
 			return Plan{}, balanceErr
 		}
-		need := big.NewInt(0)
-		for _, value := range values {
-			need.Add(need, value)
+		var values []*big.Int
+		if item.Max {
+			values = shareBalance(balance, len(recipients))
+		} else {
+			splitValues, splitErr := splitAmounts(resolved, recipients, req.Split)
+			if splitErr != nil {
+				return Plan{}, splitErr
+			}
+			values = splitValues
 		}
-		if need.Cmp(balance) > 0 {
-			return Plan{}, fmt.Errorf("%s: need %s but balance is %s", resolved.Symbol, formatUnits(need, resolved.Decimals), formatUnits(balance, resolved.Decimals))
+		if err := requireBelowBalance(resolved.Symbol, values, balance, item.Max); err != nil {
+			return Plan{}, err
 		}
 		phase := f.newPhase(resolved)
 		phase.Recipients = recipients
@@ -91,12 +93,8 @@ func (f *Flow) buildOneToManyNative(ctx context.Context, req Request, plan *Plan
 			if err != nil {
 				return err
 			}
-			need := big.NewInt(0)
-			for _, value := range values {
-				need.Add(need, value)
-			}
-			if need.Cmp(balance) > 0 {
-				return fmt.Errorf("%s: need %s but balance is %s", nativeItem.Symbol, formatUnits(need, nativeItem.Decimals), formatUnits(balance, nativeItem.Decimals))
+			if err = requireBelowBalance(nativeItem.Symbol, values, balance, false); err != nil {
+				return err
 			}
 		}
 		phase := f.newPhase(nativeItem)

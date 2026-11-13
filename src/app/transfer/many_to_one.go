@@ -70,7 +70,15 @@ func (f *Flow) manyToOneLine(ctx context.Context, source wallet.PublicWallet, re
 		resolved.Max = true
 		resolved.Keep = item.Keep
 		amount = big.NewInt(0)
-	} else if item.Keep != nil && item.Keep.Sign() > 0 && item.Keep.Cmp(balance) < 0 {
+	} else if item.Amount != nil {
+		if err := requireBelowBalance(item.Symbol, []*big.Int{item.Amount}, balance, false); err != nil {
+			return LinePlan{}, "", err
+		}
+		amount = new(big.Int).Set(item.Amount)
+	} else if item.Keep != nil && item.Keep.Sign() > 0 {
+		if item.Keep.Cmp(balance) >= 0 {
+			return LinePlan{}, "", fmt.Errorf("%s: amount must be less than the balance", item.Symbol)
+		}
 		amount = new(big.Int).Sub(balance, item.Keep)
 	}
 	if !resolved.Native && amount.Sign() <= 0 {

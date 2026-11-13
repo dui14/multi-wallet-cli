@@ -25,6 +25,7 @@ func newBatchID() string {
 func (s *Service) AttachLogger(logger *logcsv.Writer) {
 	s.mu.Lock()
 	s.logger = logger
+	s.bindPoolTraceLocked(logger)
 	s.mu.Unlock()
 }
 

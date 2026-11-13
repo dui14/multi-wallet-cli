@@ -41,6 +41,22 @@ func TestSplitAmounts_PerRecipientUsesProvidedMap(t *testing.T) {
 	}
 }
 
+func TestSplitAmounts_PerRecipientAcceptsLowercaseKeys(t *testing.T) {
+	recipients := []string{"0x00000000000000000000000000000000000000a1", "0x00000000000000000000000000000000000000a2"}
+	line := tokenLine("USDC", 0)
+	line.PerRecipient = map[string]*big.Int{
+		"0x00000000000000000000000000000000000000a1": big.NewInt(7),
+		"0x00000000000000000000000000000000000000a2": big.NewInt(9),
+	}
+	values, err := splitAmounts(line, recipients, SplitPerRecipient)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if values[0].Cmp(big.NewInt(7)) != 0 || values[1].Cmp(big.NewInt(9)) != 0 {
+		t.Fatalf("unexpected per-recipient values: %s, %s", values[0].String(), values[1].String())
+	}
+}
+
 func TestSplitAmounts_PerRecipientMissingAmountErrors(t *testing.T) {
 	recipients := []string{"0x00000000000000000000000000000000000000a1", "0x00000000000000000000000000000000000000a2"}
 	line := tokenLine("USDC", 0)

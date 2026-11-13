@@ -77,6 +77,7 @@ func (s *Service) Reload() error {
 	s.tokens = tokens
 	s.pools = buildPools(networks)
 	s.thresholds = thresholds
+	s.bindPoolTraceLocked(s.logger)
 	s.mu.Unlock()
 	return nil
 }

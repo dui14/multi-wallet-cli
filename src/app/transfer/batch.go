@@ -514,7 +514,7 @@ func callsFor(lines []LinePlan, zeroMax bool) ([]evm.Call, error) {
 				value = big.NewInt(0)
 			}
 			if !common.IsHexAddress(line.To) {
-				return nil, fmt.Errorf("invalid recipient address")
+				return nil, fmt.Errorf("invalid destination wallet address")
 			}
 			calls[index] = evm.Call{To: common.HexToAddress(line.To), Value: new(big.Int).Set(value)}
 			continue

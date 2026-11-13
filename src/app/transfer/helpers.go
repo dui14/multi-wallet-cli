@@ -22,7 +22,7 @@ func normalizeEVMAddress(value string) string {
 
 func (f *Flow) requireRecipientEVM(value string) error {
 	if normalizeEVMAddress(value) == "" {
-		return fmt.Errorf("invalid EVM recipient address")
+		return fmt.Errorf("invalid EVM destination wallet address")
 	}
 	return nil
 }
@@ -33,7 +33,7 @@ func (f *Flow) requireRecipientsEVM(values []string) ([]string, error) {
 	for _, value := range values {
 		normalized := normalizeEVMAddress(value)
 		if normalized == "" {
-			return nil, fmt.Errorf("invalid recipient address %q", value)
+			return nil, fmt.Errorf("invalid destination wallet address %q", value)
 		}
 		if seen[normalized] {
 			continue
@@ -42,7 +42,7 @@ func (f *Flow) requireRecipientsEVM(values []string) ([]string, error) {
 		out = append(out, normalized)
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("select at least one recipient")
+		return nil, fmt.Errorf("select at least one destination wallet")
 	}
 	return out, nil
 }
@@ -96,7 +96,18 @@ func (f *Flow) loadMeta(ctx context.Context, item TokenLine) (TokenLine, error) 
 	}); err != nil {
 		name = ""
 	}
-	return TokenLine{Symbol: symbol, Name: name, Address: address, Decimals: decimals, Custom: true, Unverified: true}, nil
+	return TokenLine{
+		Symbol:       symbol,
+		Name:         name,
+		Address:      address,
+		Decimals:     decimals,
+		Custom:       true,
+		Unverified:   true,
+		Amount:       item.Amount,
+		Max:          item.Max,
+		Keep:         item.Keep,
+		PerRecipient: item.PerRecipient,
+	}, nil
 }
 
 func (f *Flow) balanceOf(ctx context.Context, owner string, item TokenLine) (*big.Int, error) {

@@ -145,6 +145,7 @@ func (f *Flow) runOwner(ctx context.Context, group ownerGroup, signer KeySigner,
 	var jobs []receiptJob
 	stopped := false
 	var stopErr error
+	sendSeq := 0
 	for _, indexes := range chunkIndexes(group.lines) {
 		if stopped {
 			for _, index := range indexes {
@@ -178,7 +179,8 @@ func (f *Flow) runOwner(ctx context.Context, group ownerGroup, signer KeySigner,
 				index := indexes[offset]
 				var hash string
 				var hashMu sync.Mutex
-				sendErr := f.blastTx(ctx, tx, &hash, &hashMu)
+				sendSeq++
+				sendErr := f.blastTx(rpc.WithTxSeq(ctx, sendSeq), tx, &hash, &hashMu)
 				if hash == "" && tx != nil {
 					hash = tx.Hash().Hex()
 				}
@@ -221,7 +223,8 @@ func (f *Flow) runOwner(ctx context.Context, group ownerGroup, signer KeySigner,
 		}
 		var hash string
 		var hashMu sync.Mutex
-		sendErr = f.blastTx(ctx, tx, &hash, &hashMu)
+		sendSeq++
+		sendErr = f.blastTx(rpc.WithTxSeq(ctx, sendSeq), tx, &hash, &hashMu)
 		if hash == "" {
 			hash = tx.Hash().Hex()
 		}
@@ -248,7 +251,8 @@ func (f *Flow) runOwner(ctx context.Context, group ownerGroup, signer KeySigner,
 		if !f.waitSeen(ctx, job.hash, mempoolWait) {
 			var ignored string
 			var hashMu sync.Mutex
-			_ = f.blastTx(ctx, job.tx, &ignored, &hashMu)
+			sendSeq++
+			_ = f.blastTx(rpc.WithTxSeq(ctx, sendSeq), job.tx, &ignored, &hashMu)
 		}
 		receipt, receiptErr := f.waitReceipt(ctx, job.hash)
 		outcome := outcomeFromReceipt(job.hash, job.nonce, receipt, receiptErr)
@@ -422,13 +426,19 @@ type lineOutcome struct {
 	err               error
 }
 
-func (f *Flow) blastTx(ctx context.Context, tx *types.Transaction, hash *string, hashMu *sync.Mutex) error {
+func (f *Flow) blastTx(ctx context.Context, tx *types.Transaction, hash *string, hashMu *sync.Mutex) (err error) {
+	started := time.Now()
+	seq := rpc.TxSeqFrom(ctx)
+	f.logBlastStart(seq, tx)
+	defer func() {
+		f.logBlastDone(seq, time.Since(started), err)
+	}()
 	broadcastCtx, cancel := context.WithTimeout(ctx, broadcastTimeout)
 	go func() {
 		<-broadcastCtx.Done()
 		cancel()
 	}()
-	return f.race(broadcastCtx, func(callCtx context.Context, rpcURL string) error {
+	err = f.race(broadcastCtx, func(callCtx context.Context, rpcURL string) error {
 		got, broadcastErr := f.evm.BroadcastTx(callCtx, rpcURL, tx)
 		if broadcastErr != nil {
 			return broadcastErr
@@ -440,6 +450,7 @@ func (f *Flow) blastTx(ctx context.Context, tx *types.Transaction, hash *string,
 		hashMu.Unlock()
 		return nil
 	})
+	return err
 }
 
 func (f *Flow) waitSeen(ctx context.Context, txHash string, timeout time.Duration) bool {
