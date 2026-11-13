@@ -102,16 +102,16 @@
     "seedRpcs": [
       "https://ethereum-sepolia-rpc.publicnode.com",
       "https://sepolia.drpc.org",
-      "https://rpc.sepolia.org"
+      "https://rpc.sepolia.org",
+      "https://public.1rpc.io/sepolia",
+      "https://0xrpc.io/sep"
     ],
     "nativeSymbol": "ETH",
     "nativeDecimals": 18,
     "eip1559": true,
     "explorer": "https://sepolia.etherscan.io/",
     "contracts": {
-      "wrappedNative": "",
-      "eip7702Executor": "0x17a897d1f958a804980730A29fB82203E48f0A82",
-      "eip7702ExecutorCodeHash": "0x71beae729f2ca86e0712ec0c3ef12f42fb491834cf59c20396b72ce475da898c"
+      "wrappedNative": ""
     }
   },
   "linea-mainnet": {
