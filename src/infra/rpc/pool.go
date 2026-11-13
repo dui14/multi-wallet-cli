@@ -49,14 +49,16 @@ type Endpoint struct {
 // Pool selects RPC endpoints per chain across three tiers with round-robin,
 // temporary cooldown for failed endpoints, and optional private-only lock.
 type Pool struct {
-	chain       string
-	privateOnly bool
-	mu          sync.Mutex
-	tiers       map[Tier][]Endpoint
-	cursor      map[Tier]int
-	cooledUntil map[string]time.Time
-	skipped     []string
-	now         func() time.Time
+	chain        string
+	privateOnly  bool
+	mu           sync.Mutex
+	tiers        map[Tier][]Endpoint
+	cursor       map[Tier]int
+	cooledUntil  map[string]time.Time
+	cooledReason map[string]string
+	skipped      []string
+	now          func() time.Time
+	trace        TraceFunc
 }
 
 // NewPool builds a Pool for chain from the three tier URL lists.
@@ -69,10 +71,11 @@ func NewPool(chain string, privateOnly bool, privateURLs []string, discoveredURL
 			TierDiscovered: buildEndpoints(discoveredURLs, TierDiscovered),
 			TierSeed:       buildEndpoints(seedURLs, TierSeed),
 		},
-		cursor:      map[Tier]int{},
-		cooledUntil: map[string]time.Time{},
-		skipped:     skippedEndpoints(privateURLs, discoveredURLs, seedURLs),
-		now:         time.Now,
+		cursor:       map[Tier]int{},
+		cooledUntil:  map[string]time.Time{},
+		cooledReason: map[string]string{},
+		skipped:      skippedEndpoints(privateURLs, discoveredURLs, seedURLs),
+		now:          time.Now,
 	}
 }
 
@@ -111,6 +114,7 @@ func (p *Pool) ReportFailure(rawURL string) {
 func (p *Pool) ReportSuccess(rawURL string) {
 	p.mu.Lock()
 	delete(p.cooledUntil, rawURL)
+	delete(p.cooledReason, rawURL)
 	p.mu.Unlock()
 }
 
@@ -137,7 +141,12 @@ func (p *Pool) Do(ctx context.Context, fn func(context.Context, string) error) e
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			err := fn(ctx, endpoint.URL)
+			callCtx, note := logging.BeginRPCNote(ctx)
+			err := fn(callCtx, endpoint.URL)
+			original := ""
+			if note != nil {
+				original = note.Text()
+			}
 			if err == nil {
 				p.ReportSuccess(endpoint.URL)
 				return nil
@@ -146,7 +155,16 @@ func (p *Pool) Do(ctx context.Context, fn func(context.Context, string) error) e
 				notReady++
 				continue
 			}
+			reason := failureText(original, err)
+			p.rememberCoolReason(endpoint.URL, reason)
 			p.ReportFailure(endpoint.URL)
+			p.emit(TraceEvent{
+				Kind:     "report_failure",
+				Tx:       TxSeqFrom(ctx),
+				Endpoint: endpoint.URL,
+				Error:    reason,
+				Source:   "preflight/read",
+			})
 			tried = append(tried, maskEndpoint(endpoint.URL))
 		}
 	}
@@ -190,15 +208,19 @@ func (p *Pool) Race(ctx context.Context, fn func(context.Context, string) error)
 	if len(urls) == 1 {
 		return p.Do(ctx, fn)
 	}
-	type outcome struct {
-		url string
-		err error
-	}
-	results := make(chan outcome, len(urls))
+	results := make(chan raceOutcome, len(urls))
+	txSeq := TxSeqFrom(ctx)
 	for _, rawURL := range urls {
 		rawURL := rawURL
 		go func() {
-			results <- outcome{url: rawURL, err: fn(ctx, rawURL)}
+			started := time.Now()
+			callCtx, note := logging.BeginRPCNote(ctx)
+			err := fn(callCtx, rawURL)
+			original := ""
+			if note != nil {
+				original = note.Text()
+			}
+			results <- raceOutcome{url: rawURL, err: err, original: original, elapsed: time.Since(started)}
 		}()
 	}
 	var tried []string
@@ -206,17 +228,36 @@ func (p *Pool) Race(ctx context.Context, fn func(context.Context, string) error)
 	for i := 0; i < len(urls); i++ {
 		select {
 		case <-ctx.Done():
+			p.watchLeftovers(results, len(urls)-i, txSeq, "leftover request")
 			return ctx.Err()
 		case result := <-results:
+			p.emit(raceResultEvent(txSeq, result))
 			if result.err == nil {
 				p.ReportSuccess(result.url)
+				p.emit(TraceEvent{
+					Kind:       "race_winner",
+					Tx:         txSeq,
+					Endpoint:   result.url,
+					ElapsedMs:  result.elapsed.Milliseconds(),
+					SetElapsed: true,
+				})
+				p.watchLeftovers(results, len(urls)-i-1, txSeq, leftoverAfterSuccess(txSeq))
 				return nil
 			}
 			if errors.Is(result.err, ErrNotReady) {
 				notReady++
 				continue
 			}
+			reason := failureText(result.original, result.err)
+			p.rememberCoolReason(result.url, reason)
 			p.ReportFailure(result.url)
+			p.emit(TraceEvent{
+				Kind:     "report_failure",
+				Tx:       txSeq,
+				Endpoint: result.url,
+				Error:    reason,
+				Source:   sourceBeforeSuccess(txSeq),
+			})
 			tried = append(tried, maskEndpoint(result.url))
 		}
 	}

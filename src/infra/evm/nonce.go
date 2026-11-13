@@ -37,6 +37,7 @@ func (c *Client) callRaw(ctx context.Context, rpc, method string, params []any) 
 		return nil, fmt.Errorf("decode %s response: %w", method, err)
 	}
 	if decoded.Error != nil {
+		noteJSONRPC(ctx, decoded.Error)
 		return nil, fmt.Errorf("%s: %s", method, decoded.Error.Message)
 	}
 	return decoded.Result, nil
@@ -49,10 +50,12 @@ func (c *Client) post(ctx context.Context, rpc string, payload []byte) ([]byte, 
 	}
 	res, err := c.httpClient.Do(req)
 	if err != nil {
+		logging.NoteRPCFailure(ctx, "timeout/transport: "+err.Error())
 		return nil, fmt.Errorf("call EVM RPC %s", logging.MaskRPCURL(rpc))
 	}
 	defer res.Body.Close()
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		logging.NoteRPCFailure(ctx, "HTTP "+res.Status)
 		return nil, fmt.Errorf("EVM RPC %s returned HTTP %s", logging.MaskRPCURL(rpc), res.Status)
 	}
 	return readLimited(res.Body)
@@ -93,6 +96,13 @@ func newRequest(ctx context.Context, rpc string, payload []byte) (*http.Request,
 	}
 	req.Header.Set("Content-Type", "application/json")
 	return req, nil
+}
+
+func noteJSONRPC(ctx context.Context, rpcErr *rpcError) {
+	if rpcErr == nil {
+		return
+	}
+	logging.NoteRPCFailure(ctx, fmt.Sprintf("json-rpc code=%d message=%s", rpcErr.Code, rpcErr.Message))
 }
 
 func readLimited(body io.ReadCloser) ([]byte, error) {

@@ -284,6 +284,7 @@ func (c *Client) BroadcastTx(ctx context.Context, rpc string, signed *types.Tran
 		return "", fmt.Errorf("decode broadcast response: %w", err)
 	}
 	if decoded.Error != nil {
+		noteJSONRPC(ctx, decoded.Error)
 		if acceptedBroadcast(decoded.Error.Message) {
 			return localHash, nil
 		}

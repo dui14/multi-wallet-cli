@@ -40,9 +40,14 @@ type Writer struct {
 	file int
 	rows int
 
-	handle *os.File
-	csvw   *csv.Writer
-	err    error
+	handle     *os.File
+	csvw       *csv.Writer
+	err        error
+	diag       chan map[string]any
+	kick       chan struct{}
+	spill      []map[string]any
+	spillMu    sync.Mutex
+	diagHandle *os.File
 }
 
 // NewWriter prepares the logs directory, restores the persisted position from
@@ -57,6 +62,8 @@ func NewWriter(dir string) (*Writer, error) {
 		events:    make(chan Event, channelBuffer),
 		quit:      make(chan struct{}),
 		done:      make(chan struct{}),
+		diag:      make(chan map[string]any, diagBuffer),
+		kick:      make(chan struct{}, 1),
 	}
 	writer.loadState()
 	go writer.run()
@@ -113,23 +120,44 @@ func (w *Writer) Close() error {
 func (w *Writer) run() {
 	defer close(w.done)
 	for {
+		w.drainSpill()
 		select {
 		case ev := <-w.events:
 			if err := w.writeRow(ev); err != nil && w.err == nil {
 				w.err = err
 			}
-		case <-w.quit:
-			for {
-				select {
-				case ev := <-w.events:
-					if err := w.writeRow(ev); err != nil && w.err == nil {
-						w.err = err
-					}
-				default:
-					w.finish()
-					return
-				}
+		case fields := <-w.diag:
+			if err := w.writeDiagLine(fields); err != nil && w.err == nil {
+				w.err = err
 			}
+		case <-w.kick:
+		case <-w.quit:
+			w.drainIncoming()
+			w.finish()
+			return
+		}
+	}
+}
+
+func (w *Writer) drainIncoming() {
+	for {
+		w.drainSpill()
+		select {
+		case ev := <-w.events:
+			if err := w.writeRow(ev); err != nil && w.err == nil {
+				w.err = err
+			}
+		case fields := <-w.diag:
+			if err := w.writeDiagLine(fields); err != nil && w.err == nil {
+				w.err = err
+			}
+		case <-w.kick:
+		default:
+			w.drainSpill()
+			if w.hasSpill() {
+				continue
+			}
+			return
 		}
 	}
 }
@@ -216,6 +244,11 @@ func (w *Writer) finish() {
 		w.handle.Close()
 		w.handle = nil
 		w.csvw = nil
+	}
+	if w.diagHandle != nil {
+		w.diagHandle.Sync()
+		w.diagHandle.Close()
+		w.diagHandle = nil
 	}
 	if err := w.persistState(); err != nil && w.err == nil {
 		w.err = err
