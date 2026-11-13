@@ -2,7 +2,9 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math/big"
 	"sort"
 	"strings"
 
@@ -76,7 +78,20 @@ func walletChoiceLabel(item wallet.PublicWallet) string {
 }
 
 func (a *App) askTransferTokens(ctx context.Context, draft transferDraft, owner wallet.PublicWallet) ([]transferapp.TokenLine, error) {
-	options, byLabel, err := a.tokenChoiceOptions(ctx, draft, owner)
+	lines, err := a.askTransferTokenChoices(ctx, draft, owner, true)
+	if err != nil {
+		return nil, err
+	}
+	for index := range lines {
+		if askErr := a.askTokenAmount(&lines[index]); askErr != nil {
+			return nil, askErr
+		}
+	}
+	return lines, nil
+}
+
+func (a *App) askTransferTokenChoices(ctx context.Context, draft transferDraft, owner wallet.PublicWallet, withBalance bool) ([]transferapp.TokenLine, error) {
+	options, byLabel, err := a.tokenChoiceOptions(ctx, draft, owner, withBalance)
 	if err != nil {
 		return nil, err
 	}
@@ -103,18 +118,19 @@ func (a *App) askTransferTokens(ctx context.Context, draft transferDraft, owner 
 	if len(lines) == 0 {
 		return nil, fmt.Errorf("select at least one token")
 	}
-	for index := range lines {
-		if askErr := a.askTokenAmount(&lines[index]); askErr != nil {
-			return nil, askErr
-		}
-	}
 	return orderNativeLast(lines), nil
 }
 
-func (a *App) tokenChoiceOptions(ctx context.Context, draft transferDraft, owner wallet.PublicWallet) ([]string, map[string]transferapp.TokenLine, error) {
-	lines, err := a.loadOwnerTokens(ctx, draft, owner)
-	if err != nil {
-		return nil, nil, err
+func (a *App) tokenChoiceOptions(ctx context.Context, draft transferDraft, owner wallet.PublicWallet, withBalance bool) ([]string, map[string]transferapp.TokenLine, error) {
+	var lines []transferapp.TokenLine
+	var err error
+	if withBalance {
+		lines, err = a.loadOwnerTokens(ctx, draft, owner)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		lines = a.registryTokenLines(draft)
 	}
 	options := make([]string, 0, len(lines)+1)
 	byLabel := map[string]transferapp.TokenLine{}
@@ -142,8 +158,7 @@ func tokenChoiceLabel(line transferapp.TokenLine, nativeSymbol string) string {
 	return line.Symbol
 }
 
-func (a *App) loadOwnerTokens(ctx context.Context, draft transferDraft, owner wallet.PublicWallet) ([]transferapp.TokenLine, error) {
-	flow := a.transfer.BalancesFor(draft.chain, owner)
+func (a *App) registryTokenLines(draft transferDraft) []transferapp.TokenLine {
 	registry := a.transfer.Tokens()[draft.chain]
 	lines := make([]transferapp.TokenLine, 0, len(registry)+1)
 	symbols := make([]string, 0, len(registry))
@@ -155,40 +170,117 @@ func (a *App) loadOwnerTokens(ctx context.Context, draft transferDraft, owner wa
 	}
 	sort.Strings(symbols)
 	if draft.network.VMType == "evm" {
-		nativeLine := transferapp.TokenLine{Symbol: draft.network.NativeSymbol, Native: true, Decimals: draft.network.NativeDecimals}
-		if balance, err := flow.TokenBalance(ctx, ""); err == nil {
-			nativeLine.Balance = balance
-		}
-		lines = append(lines, nativeLine)
+		lines = append(lines, transferapp.TokenLine{Symbol: draft.network.NativeSymbol, Native: true, Decimals: draft.network.NativeDecimals})
 	}
 	for _, symbol := range symbols {
 		token := registry[symbol]
-		line := transferapp.TokenLine{Symbol: token.Symbol, Address: token.Address, Decimals: token.Decimals}
-		if balance, err := flow.TokenBalance(ctx, token.Address); err == nil {
-			line.Balance = balance
+		lines = append(lines, transferapp.TokenLine{Symbol: token.Symbol, Address: token.Address, Decimals: token.Decimals})
+	}
+	return lines
+}
+
+func (a *App) loadOwnerTokens(ctx context.Context, draft transferDraft, owner wallet.PublicWallet) ([]transferapp.TokenLine, error) {
+	lines := a.registryTokenLines(draft)
+	for index := range lines {
+		balance, err := a.walletTokenBalance(ctx, draft, owner, lines[index])
+		if err != nil {
+			continue
 		}
-		lines = append(lines, line)
+		lines[index].Balance = balance
 	}
 	return lines, nil
 }
 
-func (a *App) askTokenAmount(item *transferapp.TokenLine) error {
-	raw := ""
-	label := fmt.Sprintf(i18n.T("transfer.amount_for"), item.Symbol)
-	if err := survey.AskOne(&survey.Input{Message: label}, &raw, theme.SurveyOpts()...); err != nil {
-		return handleSurveyError(err)
+func (a *App) attachTokenBalances(ctx context.Context, draft transferDraft, owner wallet.PublicWallet, lines []transferapp.TokenLine) error {
+	for index := range lines {
+		balance, err := a.walletTokenBalance(ctx, draft, owner, lines[index])
+		if err != nil {
+			return err
+		}
+		lines[index].Balance = balance
 	}
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" || strings.EqualFold(trimmed, i18n.T("transfer.max")) {
+	return nil
+}
+
+func (a *App) walletTokenBalance(ctx context.Context, draft transferDraft, owner wallet.PublicWallet, line transferapp.TokenLine) (*big.Int, error) {
+	flow := a.transfer.BalancesFor(draft.chain, owner)
+	address := ""
+	if !line.Native {
+		address = line.Address
+	}
+	return flow.TokenBalance(ctx, address)
+}
+
+func (a *App) tightestBalance(ctx context.Context, draft transferDraft, owners []wallet.PublicWallet, line transferapp.TokenLine) (*big.Int, error) {
+	var tight *big.Int
+	for _, owner := range owners {
+		balance, err := a.walletTokenBalance(ctx, draft, owner, line)
+		if err != nil {
+			return nil, err
+		}
+		if tight == nil || balance.Cmp(tight) < 0 {
+			tight = balance
+		}
+	}
+	return tight, nil
+}
+
+func (a *App) askTokenAmount(item *transferapp.TokenLine) error {
+	label := fmt.Sprintf(i18n.T("transfer.amount_for"), item.Symbol)
+	value, blank, err := a.askBoundedAmount(item.Symbol, item.Decimals, item.Balance, 1, label, true)
+	if err != nil {
+		return err
+	}
+	if blank {
 		item.Max = true
+		item.Amount = nil
 		return nil
 	}
-	value, err := amount.Parse(trimmed, item.Decimals)
-	if err != nil {
-		return fmt.Errorf("%s: %w", item.Symbol, err)
-	}
+	item.Max = false
 	item.Amount = value
 	return nil
+}
+
+func (a *App) askBoundedAmount(symbol string, decimals uint8, balance *big.Int, count int, label string, allowBlank bool) (*big.Int, bool, error) {
+	for {
+		raw := ""
+		if err := survey.AskOne(&survey.Input{Message: label}, &raw, theme.SurveyOpts()...); err != nil {
+			return nil, false, handleSurveyError(err)
+		}
+		trimmed := strings.TrimSpace(raw)
+		if allowBlank && (trimmed == "" || strings.EqualFold(trimmed, i18n.T("transfer.max"))) {
+			return nil, true, nil
+		}
+		value, err := amount.Parse(trimmed, decimals)
+		if err != nil {
+			fmt.Println(theme.Error(symbol + ": " + err.Error()))
+			continue
+		}
+		check := amount.LessThanBalance(value, balance)
+		if count > 1 {
+			check = amount.RepeatedLessThanBalance(value, count, balance)
+		}
+		if check != nil {
+			fmt.Println(theme.Error(amountRejectText(symbol, balance, decimals, check)))
+			continue
+		}
+		return value, false, nil
+	}
+}
+
+func amountRejectText(symbol string, balance *big.Int, decimals uint8, err error) string {
+	shown := "-"
+	if balance != nil {
+		shown = amount.Format(balance, decimals)
+	}
+	switch {
+	case errors.Is(err, amount.ErrTotalNotBelowBalance):
+		return i18n.T("transfer.amount_total_below", symbol, shown)
+	case errors.Is(err, amount.ErrBalanceUnavailable):
+		return i18n.T("transfer.balance_unavailable", symbol)
+	default:
+		return i18n.T("transfer.amount_below_balance", symbol, shown)
+	}
 }
 
 func (a *App) askCustomToken(ctx context.Context, draft transferDraft) (transferapp.TokenLine, error) {

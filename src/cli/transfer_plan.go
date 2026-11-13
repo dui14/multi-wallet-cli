@@ -27,7 +27,7 @@ func (a *App) planTransfer(ctx context.Context, draft transferDraft, request tra
 		plan, err = a.transfer.PlanOneToOne(ctx, request, signer)
 	}
 	if err != nil {
-		spin.Error(err.Error())
+		spin.Stop()
 		return plan, err
 	}
 	spin.Success(i18n.T("transfer.checked"))

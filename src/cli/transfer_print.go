@@ -18,6 +18,9 @@ const defaultGasPriceGwei = 5
 func printTransferSummary(draft transferDraft, plan transferapp.Plan) {
 	fmt.Println()
 	fmt.Println(theme.Title(i18n.T("transfer.summary")))
+	if len(plan.Request.Recipients) > 0 {
+		fmt.Println(theme.Label(i18n.T("transfer.destinations") + ": " + strings.Join(plan.Request.Recipients, ", ")))
+	}
 	fmt.Println(theme.Label(fmt.Sprintf("%s: %s · %d", i18n.T("transfer.queue"), draft.chain, len(plan.Lines))))
 	for index, line := range plan.Lines {
 		kind := line.Kind.Label()

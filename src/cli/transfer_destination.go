@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -45,7 +46,7 @@ func (a *App) destinationWalletOptions(unlocked *wallet.WalletSet) []destination
 // returns one destination address. Selecting the manual option opens an input
 // step where Enter returns to the wallet list. Used by one-to-one and
 // many-to-one, which each send to a single destination.
-func (a *App) askDestinationSingle(unlocked *wallet.WalletSet) (string, error) {
+func (a *App) askDestinationSingle(unlocked *wallet.WalletSet, vm string) (string, error) {
 	options := a.destinationWalletOptions(unlocked)
 	labels := make([]string, 0, len(options)+1)
 	byLabel := make(map[string]string, len(options))
@@ -68,7 +69,18 @@ func (a *App) askDestinationSingle(unlocked *wallet.WalletSet) (string, error) {
 	}
 	address := strings.TrimSpace(raw)
 	if address == "" {
-		return a.askDestinationSingle(unlocked)
+		return a.askDestinationSingle(unlocked, vm)
 	}
-	return address, nil
+	items, message, secret := inspectPastedAddresses(address, vm)
+	if secret {
+		fmt.Println(message)
+		return "", errPasteSecurity
+	}
+	if message != "" || len(items) != 1 {
+		if message != "" {
+			fmt.Println(message)
+		}
+		return a.askDestinationSingle(unlocked, vm)
+	}
+	return items[0], nil
 }

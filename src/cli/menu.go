@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -59,7 +60,7 @@ func (a *App) RunMenu(ctx context.Context, wallets *wallet.WalletSet) error {
 			continue
 		}
 		if answer == i18n.T("menu.transfer") {
-			if err := a.RunTransfer(ctx, wallets); err != nil {
+			if err := a.RunTransfer(ctx, wallets); err != nil && !errors.Is(err, errPasteSecurity) {
 				fmt.Println(theme.Error(err.Error()))
 			}
 			continue

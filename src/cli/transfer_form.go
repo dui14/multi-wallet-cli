@@ -113,7 +113,7 @@ func (a *App) askOneToOneForm(ctx context.Context, unlocked *wallet.WalletSet, d
 		return request, err
 	}
 	request.Tokens = tokens
-	to, err := a.askDestinationSingle(unlocked)
+	to, err := a.askDestinationSingle(unlocked, draft.network.VMType)
 	if err != nil {
 		return request, err
 	}
@@ -122,17 +122,20 @@ func (a *App) askOneToOneForm(ctx context.Context, unlocked *wallet.WalletSet, d
 }
 
 func (a *App) askOneToManyForm(ctx context.Context, unlocked *wallet.WalletSet, draft transferDraft, request transferapp.Request) (transferapp.Request, error) {
+	tokens, err := a.askTransferTokenChoices(ctx, draft, wallet.PublicWallet{}, false)
+	if err != nil {
+		return request, err
+	}
 	owner, err := a.askTransferSource(unlocked)
 	if err != nil {
 		return request, err
 	}
 	request.From = owner
-	tokens, err := a.askTransferTokens(ctx, draft, owner)
-	if err != nil {
+	if err := a.attachTokenBalances(ctx, draft, owner, tokens); err != nil {
 		return request, err
 	}
 	request.Tokens = tokens
-	if err := a.askOneToManyRecipients(unlocked, &request); err != nil {
+	if err := a.askOneToManyDestinations(unlocked, &request, draft.network.VMType); err != nil {
 		return request, err
 	}
 	return request, nil
@@ -145,15 +148,15 @@ func (a *App) askManyToOneForm(ctx context.Context, unlocked *wallet.WalletSet, 
 	}
 	request.From = sources[0]
 	request.Froms = sources
-	allTokens, err := a.askTransferTokens(ctx, draft, sources[0])
+	allTokens, err := a.askTransferTokenChoices(ctx, draft, sources[0], true)
 	if err != nil {
 		return request, err
 	}
 	request.Tokens = allTokens
-	if err := a.askManyToOneAmounts(&request); err != nil {
+	if err := a.askManyToOneAmounts(ctx, draft, &request); err != nil {
 		return request, err
 	}
-	to, err := a.askDestinationSingle(unlocked)
+	to, err := a.askDestinationSingle(unlocked, draft.network.VMType)
 	if err != nil {
 		return request, err
 	}
