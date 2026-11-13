@@ -1,9 +1,17 @@
 package amount
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
+)
+
+var (
+	ErrNonPositive          = errors.New("amount must be greater than zero")
+	ErrBalanceUnavailable   = errors.New("balance is unavailable")
+	ErrNotBelowBalance      = errors.New("amount must be less than the balance")
+	ErrTotalNotBelowBalance = errors.New("total amount must be less than the balance")
 )
 
 // Amount is a token quantity in base units with its display decimals.
@@ -54,6 +62,53 @@ func Parse(human string, decimals uint8) (*big.Int, error) {
 		return nil, fmt.Errorf("amount must be greater than zero")
 	}
 	return raw, nil
+}
+
+// LessThanBalance reports whether value is a positive quantity strictly below balance.
+func LessThanBalance(value *big.Int, balance *big.Int) error {
+	if value == nil || value.Sign() <= 0 {
+		return ErrNonPositive
+	}
+	if balance == nil {
+		return ErrBalanceUnavailable
+	}
+	if value.Cmp(balance) >= 0 {
+		return ErrNotBelowBalance
+	}
+	return nil
+}
+
+// TotalLessThanBalance reports whether every value is positive and the sum is strictly below balance.
+func TotalLessThanBalance(values []*big.Int, balance *big.Int) error {
+	if balance == nil {
+		return ErrBalanceUnavailable
+	}
+	total := big.NewInt(0)
+	for _, value := range values {
+		if err := LessThanBalance(value, balance); err != nil {
+			return err
+		}
+		total.Add(total, value)
+	}
+	if total.Sign() <= 0 {
+		return ErrNonPositive
+	}
+	if total.Cmp(balance) >= 0 {
+		return ErrTotalNotBelowBalance
+	}
+	return nil
+}
+
+// RepeatedLessThanBalance reports whether repeating value count times stays strictly below balance.
+func RepeatedLessThanBalance(value *big.Int, count int, balance *big.Int) error {
+	if count <= 0 {
+		return ErrNonPositive
+	}
+	values := make([]*big.Int, count)
+	for index := range values {
+		values[index] = value
+	}
+	return TotalLessThanBalance(values, balance)
 }
 
 // Format renders base units as a human string without float math.
