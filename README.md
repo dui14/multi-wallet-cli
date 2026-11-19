@@ -1,6 +1,7 @@
 # Multi-Wallet CLI
 
 Local command-line tool for moving funds across many wallets. Keys stay on your machine. An interactive menu and a natural-language agent both stop for your confirmation before anything is signed.
+Video Demo: <Soon>
 
 - [Why this tool](#why-this-tool)
 - [Tech](#tech)
