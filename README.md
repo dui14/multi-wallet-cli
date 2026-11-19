@@ -133,7 +133,7 @@ You can use the `contracts.eip7702Executor` pins already listed in `src/networks
 Install Go 1.25 or newer, then:
 
 ```bash
-git clone https://github.com/dui14/Multi-Wallet-CLI.git
+git clone https://github.com/dui14/multi-wallet-cli.git
 cd multi-wallet-cli/src
 go run main.go -setup
 ```
